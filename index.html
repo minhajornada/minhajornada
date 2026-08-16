@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gamifique suas tarefas com sincronização Google Drive">
+    <meta name="theme-color" content="#84cc16">
+    <title>Quest System - Sua Jornada</title>
+    
+    <!-- Google API -->
+   <!-- Biblioteca antiga (necessária para acessar o Google Drive) -->
+<script src="https://apis.google.com/js/api.js"></script>
+
+<!-- NOVA Biblioteca de Identidade (obrigatória para fazer o login/OAuth) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #faf8f3 0%, #fef4e8 50%, #fce8e0 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Auth Section */
+        .auth-section {
+            background: linear-gradient(90deg, #f0f4f0 0%, #f5f0f8 100%);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            border: 2px solid rgba(132, 204, 22, 0.2);
+        }
+
+        .auth-section h2 {
+            color: #2d5a2d;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .auth-button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: rgba(132, 204, 22, 0.1);
+            border: 1px solid rgba(132, 204, 22, 0.3);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .sync-status.syncing {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .sync-status.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #dc2626;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #84cc16;
+        }
+
+        .sync-indicator.syncing {
+            animation: pulse 1.5s infinite;
+            background: #3b82f6;
+        }
+
+        .sync-indicator.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, #f0f4f0 0%, #f5f0f8 100%);
+            border-bottom: 2px solid rgba(132, 204, 22, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-top {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-title h1 {
+            font-size: 2.5em;
+            color: #2d5a2d;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-title .emoji {
+            font-size: 2.2em;
+        }
+
+        .header-subtitle {
+            color: #5a7a5a;
+            font-size: 1em;
+        }
+
+        .points-display {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(132, 204, 22, 0.3);
+            border-radius: 50px;
+            padding: 20px 35px;
+            text-align: right;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .points-value {
+            font-size: 3em;
+            font-weight: 700;
+            color: #b45309;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .points-label {
+            font-size: 0.75em;
+            color: #5a7a5a;
+            font-weight: 500;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(132, 204, 22, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-emoji {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.7em;
+            color: #5a7a5a;
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #2d5a2d;
+        }
+
+        /* Main Content */
+        .content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section-title .emoji {
+            font-size: 2em;
+        }
+
+        .section-title h2 {
+            font-size: 1.8em;
+            color: #333;
+            font-weight: 700;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Form */
+        .form-container {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(132, 204, 22, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(132, 204, 22, 0.3);
+            border-radius: 12px;
+            font-size: 1em;
+            font-family: 'Poppins', sans-serif;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #84cc16;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-buttons .btn-submit {
+            background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+            color: white;
+        }
+
+        .form-buttons .btn-cancel {
+            background: #d1d5db;
+            color: #374151;
+        }
+
+        /* Tasks */
+        .type-section {
+            margin-bottom: 25px;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .type-habit {
+            background: rgba(168, 85, 247, 0.1);
+            color: #7e22ce;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .type-pending {
+            background: rgba(244, 63, 94, 0.1);
+            color: #be185d;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        .type-daily {
+            background: rgba(249, 115, 22, 0.1);
+            color: #c2410c;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .task-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(132, 204, 22, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .task-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: rgba(132, 204, 22, 0.4);
+        }
+
+        .task-card.completed {
+            opacity: 0.6;
+        }
+
+        .task-checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #84cc16;
+        }
+
+        .task-info {
+            flex: 1;
+        }
+
+        .task-name {
+            font-weight: 600;
+            font-size: 1em;
+            margin-bottom: 4px;
+            color: #1f2937;
+        }
+
+        .task-card.completed .task-name {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+
+        .task-frequency {
+            font-size: 0.8em;
+            color: #6b7280;
+        }
+
+        .task-points {
+            text-align: right;
+            margin-right: 12px;
+        }
+
+        .task-points-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #b45309;
+        }
+
+        .task-points-label {
+            font-size: 0.7em;
+            color: #6b7280;
+        }
+
+        .task-delete {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: color 0.3s ease;
+            padding: 6px;
+        }
+
+        .task-delete:hover {
+            color: #ef4444;
+        }
+
+        /* Rewards */
+        .category-badge {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 12px;
+            border: 1px solid;
+        }
+
+        .category-instant {
+            background: rgba(234, 179, 8, 0.1);
+            color: #a16207;
+            border-color: rgba(234, 179, 8, 0.3);
+        }
+
+        .category-aspirational {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1e40af;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .category-seasonal {
+            background: rgba(244, 114, 182, 0.1);
+            color: #be185d;
+            border-color: rgba(244, 114, 182, 0.3);
+        }
+
+        .reward-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(132, 204, 22, 0.2);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .reward-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: rgba(132, 204, 22, 0.4);
+        }
+
+        .reward-card.unavailable {
+            opacity: 0.5;
+        }
+
+        .reward-info {
+            flex: 1;
+        }
+
+        .reward-name {
+            font-weight: 600;
+            font-size: 0.95em;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .reward-cost {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #b45309;
+        }
+
+        .reward-card.unavailable .reward-cost {
+            color: #9ca3af;
+        }
+
+        .reward-actions {
+            display: flex;
+            gap: 6px;
+            align-items: flex-start;
+        }
+
+        .reward-redeem {
+            background: rgba(245, 158, 11, 0.8);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+        }
+
+        .reward-redeem:hover:not(:disabled) {
+            background: rgba(245, 158, 11, 1);
+            transform: scale(1.1);
+        }
+
+        .reward-redeem:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .reward-delete {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: color 0.3s ease;
+            padding: 6px;
+        }
+
+        .reward-delete:hover {
+            color: #ef4444;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .footer {
+            background: linear-gradient(90deg, #f0f4f0 0%, #f5f0f8 100%);
+            border-top: 2px solid rgba(132, 204, 22, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            color: #5a7a5a;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-text {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .sticky-reward {
+            position: sticky;
+            top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .header-top {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .points-display {
+                width: 100%;
+            }
+
+            .header-title h1 {
+                font-size: 1.8em;
+            }
+
+            .section-title h2 {
+                font-size: 1.4em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn, .file-label {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Section -->
+        <div id="authSection" class="auth-section">
+            <h2>Bem-vinda ao Quest System! 🌿</h2>
+            <p style="margin-bottom: 20px; color: #5a7a5a;">Faça login com sua conta Google para sincronizar seus dados em todos seus dispositivos</p>
+            <button class="auth-button" id="signInButton">🔐 Conectar com Google</button>
+        </div>
+
+        <!-- Sync Status -->
+        <div id="syncStatus" class="sync-status hidden">
+            <span class="sync-indicator" id="syncIndicator"></span>
+            <span id="syncMessage">Conectado</span>
+        </div>
+
+        <!-- Header -->
+        <div id="mainContent" class="hidden">
+            <div class="header">
+                <div class="header-top">
+                    <div class="header-title">
+                        <span class="emoji">🌿</span>
+                        <div>
+                            <h1>Sua Jornada</h1>
+                            <p class="header-subtitle">Cultive seus hábitos, conquiste suas recompensas</p>
+                        </div>
+                    </div>
+                    <div class="points-display">
+                        <div class="points-value" id="points">0</div>
+                        <div class="points-label">pontos</div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-emoji">📈</div>
+                        <div class="stat-label">Level</div>
+                        <div class="stat-value" id="level">1</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-emoji">✨</div>
+                        <div class="stat-label">Total Ganho</div>
+                        <div class="stat-value" id="totalPointsEarned">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-emoji">🔥</div>
+                        <div class="stat-label">Sequência</div>
+                        <div class="stat-value" id="streak">0</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" id="syncButton">🔄 Sincronizar Agora</button>
+                    <button class="btn" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;" id="signOutButton">Sair</button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="content">
+                <!-- Tasks Section -->
+                <div>
+                    <div class="section-title">
+                        <span class="emoji">🗺️</span>
+                        <h2>Suas Missões</h2>
+                    </div>
+
+                    <div class="button-group">
+                        <label class="file-label">
+                            📤 Importar
+                            <input type="file" accept=".csv" class="file-input" id="taskImport">
+                        </label>
+                        <button class="btn btn-secondary" id="exportTasks">📥 Exportar</button>
+                        <button class="btn btn-accent" id="toggleTaskForm">➕ Nova Missão</button>
+                    </div>
+
+                    <div id="taskForm" class="form-container" style="display: none;">
+                        <input type="text" class="form-input" id="taskName" placeholder="Nome da missão...">
+                        <div class="form-row">
+                            <select class="form-input" id="taskType">
+                                <option value="daily">📅 Tarefa Diária</option>
+                                <option value="pending">⚡ Pendência</option>
+                                <option value="habit">🎯 Hábito</option>
+                            </select>
+                            <select class="form-input" id="taskFrequency">
+                                <option value="daily">Diária</option>
+                                <option value="weekly">Semanal</option>
+                                <option value="once">Única</option>
+                            </select>
+                            <input type="number" class="form-input" id="taskPoints" placeholder="Pontos" min="1" max="500" value="10">
+                        </div>
+                        <div class="form-buttons">
+                            <button class="btn-submit" id="addTask">Adicionar</button>
+                            <button class="btn-cancel" id="cancelTaskForm">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <div id="tasksList"></div>
+                </div>
+
+                <!-- Rewards Section -->
+                <div class="sticky-reward">
+                    <div class="section-title">
+                        <span class="emoji">🎁</span>
+                        <h2>Recompensas</h2>
+                    </div>
+
+                    <div class="button-group">
+                        <label class="file-label">
+                            📤 Importar
+                            <input type="file" accept=".csv" class="file-input" id="rewardImport">
+                        </label>
+                        <button class="btn btn-secondary" id="exportRewards">📥 Exportar</button>
+                        <button class="btn btn-accent" id="toggleRewardForm">➕ Nova</button>
+                    </div>
+
+                    <div id="rewardForm" class="form-container" style="display: none;">
+                        <input type="text" class="form-input" id="rewardName" placeholder="Nome da recompensa...">
+                        <div class="form-row">
+                            <input type="number" class="form-input" id="rewardCost" placeholder="Custo" min="1" value="20">
+                            <select class="form-input" id="rewardCategory">
+                                <option value="instant">Rápida ✨</option>
+                                <option value="aspirational">Sonho 💭</option>
+                                <option value="seasonal">Sazonal 🌸</option>
+                            </select>
+                        </div>
+                        <div class="form-buttons">
+                            <button class="btn-submit" id="addReward">Adicionar</button>
+                            <button class="btn-cancel" id="cancelRewardForm">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <div id="rewardsList"></div>
+
+                    <button class="btn btn-primary" id="resetDaily" style="width: 100%; margin-top: 20px;">🔄 Resetar Diárias</button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>🌿 Cultive seus hábitos, colha suas vitórias 🌿</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '10729596187-7nuvpic8qe2ako3cu6rv3lq9mcusg8u8.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyA9xBs8KSEf2gXpdqPzamzric3PKIMCApE';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+
+        let state = {
+            player: { level: 1, points: 0, totalPointsEarned: 0, streakDays: 0 },
+            tasks: [],
+            rewards: []
+        };
+
+        let fileId = null;
+        let tokenClient = null;
+
+               // Declare as variáveis no escopo global para garantir que estejam acessíveis
+        ;
+
+                       // Initialize Google API
+        function initializeGoogle() {
+            if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: '10729596187-7nuvpic8qe2ako3cu6rv3lq9mcusg8u8.apps.googleusercontent.com',
+                    scope: SCOPES,
+                    callback: '' 
+                });
+            } else {
+                setTimeout(initializeGoogle, 100);
+                return;
+            }
+
+            if (typeof gapi !== 'undefined') {
+                gapi.load('client', async () => {
+                    // CORREÇÃO: Inicializamos o gapi APENAS com a chave de API, sem passar o scope
+                    await gapi.client.init({
+                        apiKey: API_KEY
+                    });
+                    
+                    // CORREÇÃO: Carregamos explicitamente a biblioteca do Drive para garantir que ela exista
+                    await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+                    
+                    checkAuthStatus();
+                });
+            }
+        }
+
+        function checkAuthStatus() {
+            const token = localStorage.getItem('googleToken');
+            if (token && typeof gapi !== 'undefined' && gapi.client) {
+                gapi.client.setToken({ access_token: token });
+                showMainContent();
+                loadDataFromDrive();
+            }
+        }
+
+        function signIn() {
+            if (!tokenClient) {
+                initializeGoogle();
+            }
+
+            if (!tokenClient) {
+                alert('A biblioteca de login do Google ainda está carregando. Por favor, aguarde um instante e tente novamente.');
+                return;
+            }
+
+            tokenClient.callback = async (response) => {
+                if (response.error !== undefined) {
+                    throw (response);
+                }
+                localStorage.setItem('googleToken', response.access_token);
+                if (typeof gapi !== 'undefined' && gapi.client) {
+                    gapi.client.setToken({ access_token: response.access_token });
+                }
+                showMainContent();
+                loadDataFromDrive();
+            };
+
+            if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                tokenClient.requestAccessToken({ prompt: '' });
+            }
+        }
+
+        function signOut() {
+            if (confirm('Tem certeza que quer desconectar?')) {
+                localStorage.removeItem('googleToken');
+                fileId = null;
+                location.reload();
+            }
+        }
+
+        function showMainContent() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('hidden');
+            document.getElementById('syncStatus').classList.remove('hidden');
+        }
+
+
+        async function loadDataFromDrive() {
+            try {
+                updateSyncStatus('Sincronizando...', 'syncing');
+                
+                // Check if file exists
+                const response = await gapi.client.drive.files.list({
+                    q: "name='quest-system-data.json' and trashed=false",
+                    spaces: 'drive',
+                    fields: 'files(id, webViewLink)'
+                });
+
+                if (response.result.files.length > 0) {
+                    fileId = response.result.files[0].id;
+                    await downloadDataFromFile();
+                } else {
+                    // Create new file
+                    await saveDataToDrive();
+                }
+
+                updateSyncStatus('Sincronizado', 'success');
+                updateUI();
+            } catch (error) {
+                console.error('Erro ao sincronizar:', error);
+                updateSyncStatus('Erro na sincronização. Tente novamente.', 'error');
+            }
+        }
+
+        async function downloadDataFromFile() {
+            try {
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
+                });
+
+                state = JSON.parse(response.body);
+                updateUI();
+            } catch (error) {
+                console.error('Erro ao baixar arquivo:', error);
+            }
+        }
+
+                async function saveDataToDrive() {
+            try {
+                updateSyncStatus('Salvando...', 'syncing');
+
+                const metadata = {
+                    name: 'quest-system-data.json',
+                    mimeType: 'application/json'
+                };
+
+                const body = JSON.stringify(state);
+
+                if (fileId) {
+                    // Atualizar arquivo existente
+                    await gapi.client.request({
+                        path: `/upload/drive/v3/files/${fileId}`,
+                        method: 'PATCH',
+                        params: { uploadType: 'media' },
+                        body: body
+                    });
+                } else {
+                    // Criar um novo arquivo
+                    const boundary = '314159265358979323846';
+                    const delimiter = "\r\n--" + boundary + "\r\n";
+                    const close_delim = "\r\n--" + boundary + "--";
+
+                    const multipartRequestBody =
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        JSON.stringify(metadata) +
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        body +
+                        close_delim;
+
+                    const response = await gapi.client.request({
+                        path: '/upload/drive/v3/files',
+                        method: 'POST',
+                        params: { uploadType: 'multipart' },
+                        headers: {
+                            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                        },
+                        body: multipartRequestBody
+                    });
+
+                    fileId = response.result.id;
+                }
+
+                updateSyncStatus('Sincronizado', 'success');
+            } catch (error) {
+                console.error('Erro ao salvar no Drive:', error);
+                updateSyncStatus('Erro ao salvar. Tente novamente.', 'error');
+            }
+        }
+
+
+        function updateSyncStatus(message, status) {
+            const syncStatus = document.getElementById('syncStatus');
+            const syncIndicator = document.getElementById('syncIndicator');
+            const syncMessage = document.getElementById('syncMessage');
+
+            syncMessage.textContent = message;
+            syncIndicator.className = 'sync-indicator';
+
+            if (status === 'syncing') {
+                syncIndicator.classList.add('syncing');
+                syncStatus.classList.add('syncing');
+            } else if (status === 'error') {
+                syncIndicator.classList.add('error');
+                syncStatus.classList.add('error');
+            } else {
+                syncStatus.classList.remove('syncing', 'error');
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('points').textContent = state.player.points;
+            document.getElementById('level').textContent = state.player.level;
+            document.getElementById('totalPointsEarned').textContent = state.player.totalPointsEarned;
+            document.getElementById('streak').textContent = state.player.streakDays;
+            renderTasks();
+            renderRewards();
+        }
+
+        function addTask() {
+            const name = document.getElementById('taskName').value.trim();
+            if (!name) {
+                alert('Digite um nome para a missão');
+                return;
+            }
+
+            const task = {
+                id: Date.now(),
+                name,
+                type: document.getElementById('taskType').value,
+                frequency: document.getElementById('taskFrequency').value,
+                points: parseInt(document.getElementById('taskPoints').value) || 10,
+                completed: false
+            };
+
+            state.tasks.push(task);
+            saveDataToDrive();
+            updateUI();
+            
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskPoints').value = '10';
+            document.getElementById('toggleTaskForm').click();
+        }
+
+        function toggleTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (task && !task.completed) {
+                task.completed = true;
+                state.player.points += task.points;
+                state.player.totalPointsEarned += task.points;
+                state.player.level = Math.floor(state.player.totalPointsEarned / 100) + 1;
+                saveDataToDrive();
+                updateUI();
+            }
+        }
+
+        function deleteTask(id) {
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            saveDataToDrive();
+            updateUI();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasksList');
+            if (state.tasks.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p class="empty-state-text">Nenhuma missão ainda...</p></div>';
+                return;
+            }
+
+            const types = ['habit', 'pending', 'daily'];
+            let html = '';
+
+            for (const type of types) {
+                const typeTasks = state.tasks.filter(t => t.type === type);
+                if (typeTasks.length === 0) continue;
+
+                const labels = {
+                    habit: { text: '🎯 Hábito', class: 'type-habit' },
+                    pending: { text: '⚡ Pendência', class: 'type-pending' },
+                    daily: { text: '📅 Tarefa Diária', class: 'type-daily' }
+                };
+
+                html += `<div class="type-section">
+                    <div class="type-badge ${labels[type].class}">${labels[type].text}</div>`;
+
+                for (const task of typeTasks) {
+                    const freqLabel = task.frequency === 'daily' ? '📆 Diária' : 
+                                     task.frequency === 'weekly' ? '📅 Semanal' : '🎯 Única';
+                    
+                    html += `
+                        <div class="task-card ${task.completed ? 'completed' : ''}">
+                            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
+                                   onchange="toggleTask(${task.id})">
+                            <div class="task-info">
+                                <div class="task-name">${task.name}</div>
+                                <div class="task-frequency">${freqLabel}</div>
+                            </div>
+                            <div class="task-points">
+                                <div class="task-points-value">+${task.points}</div>
+                                <div class="task-points-label">pts</div>
+                            </div>
+                            <button class="task-delete" onclick="deleteTask(${task.id})">🗑️</button>
+                        </div>`;
+                }
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        function addReward() {
+            const name = document.getElementById('rewardName').value.trim();
+            if (!name) {
+                alert('Digite um nome para a recompensa');
+                return;
+            }
+
+            const reward = {
+                id: Date.now(),
+                name,
+                cost: parseInt(document.getElementById('rewardCost').value) || 20,
+                category: document.getElementById('rewardCategory').value,
+                unlocked: false
+            };
+
+            state.rewards.push(reward);
+            saveDataToDrive();
+            updateUI();
+            
+            document.getElementById('rewardName').value = '';
+            document.getElementById('rewardCost').value = '20';
+            document.getElementById('toggleRewardForm').click();
+        }
+
+        function redeemReward(id) {
+            const reward = state.rewards.find(r => r.id === id);
+            if (reward && state.player.points >= reward.cost) {
+                state.player.points -= reward.cost;
+                reward.unlocked = true;
+                saveDataToDrive();
+                updateUI();
+                
+                setTimeout(() => {
+                    alert(`🎉 Você desbloqueou: ${reward.name}!\n\nAproveite sua recompensa!`);
+                    reward.unlocked = false;
+                    saveDataToDrive();
+                    updateUI();
+                }, 300);
+            }
+        }
+
+        function deleteReward(id) {
+            state.rewards = state.rewards.filter(r => r.id !== id);
+            saveDataToDrive();
+            updateUI();
+        }
+
+        function renderRewards() {
+            const container = document.getElementById('rewardsList');
+            if (state.rewards.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p class="empty-state-text">Nenhuma recompensa ainda...</p></div>';
+                return;
+            }
+
+            const categories = ['instant', 'aspirational', 'seasonal'];
+            const labels = {
+                instant: { text: 'Rápida ✨', class: 'category-instant' },
+                aspirational: { text: 'Sonho 💭', class: 'category-aspirational' },
+                seasonal: { text: 'Sazonal 🌸', class: 'category-seasonal' }
+            };
+
+            let html = '';
+
+            for (const cat of categories) {
+                const catRewards = state.rewards.filter(r => r.category === cat);
+                if (catRewards.length === 0) continue;
+
+                html += `<div class="category-badge ${labels[cat].class}">${labels[cat].text}</div>`;
+
+                for (const reward of catRewards) {
+                    const canAfford = state.player.points >= reward.cost;
+                    html += `
+                        <div class="reward-card ${!canAfford ? 'unavailable' : ''}">
+                            <div class="reward-info">
+                                <div class="reward-name">${reward.name}</div>
+                                <div class="reward-cost">${reward.cost}</div>
+                            </div>
+                            <div class="reward-actions">
+                                <button class="reward-redeem" ${!canAfford ? 'disabled' : ''} 
+                                        onclick="redeemReward(${reward.id})">🎁</button>
+                                <button class="reward-delete" onclick="deleteReward(${reward.id})">🗑️</button>
+                            </div>
+                        </div>`;
+                }
+            }
+
+            container.innerHTML = html;
+        }
+
+        function exportTasks() {
+            const header = 'Nome,Tipo,Frequência,Pontos\n';
+            const rows = state.tasks.map(t => `"${t.name}",${t.type},${t.frequency},${t.points}`).join('\n');
+            const csv = header + rows;
+            downloadCSV(csv, `missoes-${new Date().toISOString().split('T')[0]}.csv`);
+        }
+
+        function exportRewards() {
+            const header = 'Nome,Custo,Categoria\n';
+            const rows = state.rewards.map(r => `"${r.name}",${r.cost},${r.category}`).join('\n');
+            const csv = header + rows;
+            downloadCSV(csv, `recompensas-${new Date().toISOString().split('T')[0]}.csv`);
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.click();
+        }
+
+        function handleTaskImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').slice(1);
+
+                    let imported = 0;
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        const parts = line.split(',').map(p => p.replace(/^"|"$/g, '').trim());
+                        if (parts.length < 4) continue;
+
+                        const task = {
+                            id: Date.now() + imported,
+                            name: parts[0],
+                            type: ['daily', 'pending', 'habit'].includes(parts[1]) ? parts[1] : 'daily',
+                            frequency: ['daily', 'weekly', 'once'].includes(parts[2]) ? parts[2] : 'daily',
+                            points: parseInt(parts[3]) || 10,
+                            completed: false
+                        };
+                        state.tasks.push(task);
+                        imported++;
+                    }
+
+                    if (imported > 0) {
+                        saveDataToDrive();
+                        updateUI();
+                        alert(`✅ ${imported} missão(ões) importada(s) com sucesso!`);
+                    }
+                } catch (error) {
+                    alert('❌ Erro ao importar: verifique o formato do arquivo');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function handleRewardImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').slice(1);
+
+                    let imported = 0;
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        const parts = line.split(',').map(p => p.replace(/^"|"$/g, '').trim());
+                        if (parts.length < 3) continue;
+
+                        const reward = {
+                            id: Date.now() + imported,
+                            name: parts[0],
+                            cost: parseInt(parts[1]) || 20,
+                            category: ['instant', 'aspirational', 'seasonal'].includes(parts[2]) ? parts[2] : 'instant',
+                            unlocked: false
+                        };
+                        state.rewards.push(reward);
+                        imported++;
+                    }
+
+                    if (imported > 0) {
+                        saveDataToDrive();
+                        updateUI();
+                        alert(`✅ ${imported} recompensa(s) importada(s) com sucesso!`);
+                    }
+                } catch (error) {
+                    alert('❌ Erro ao importar: verifique o formato do arquivo');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function resetDaily() {
+            if (confirm('Resetar tarefas diárias de hoje?')) {
+                state.tasks.forEach(t => {
+                    if (t.frequency === 'daily') t.completed = false;
+                });
+                saveDataToDrive();
+                updateUI();
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('signInButton').addEventListener('click', signIn);
+        document.getElementById('signOutButton').addEventListener('click', signOut);
+        document.getElementById('syncButton').addEventListener('click', loadDataFromDrive);
+
+        document.getElementById('toggleTaskForm').addEventListener('click', () => {
+            const form = document.getElementById('taskForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('cancelTaskForm').addEventListener('click', () => {
+            document.getElementById('taskForm').style.display = 'none';
+        });
+
+        document.getElementById('addTask').addEventListener('click', addTask);
+
+        document.getElementById('toggleRewardForm').addEventListener('click', () => {
+            const form = document.getElementById('rewardForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('cancelRewardForm').addEventListener('click', () => {
+            document.getElementById('rewardForm').style.display = 'none';
+        });
+
+        document.getElementById('addReward').addEventListener('click', addReward);
+        document.getElementById('exportTasks').addEventListener('click', exportTasks);
+        document.getElementById('exportRewards').addEventListener('click', exportRewards);
+        document.getElementById('taskImport').addEventListener('change', handleTaskImport);
+        document.getElementById('rewardImport').addEventListener('change', handleRewardImport);
+        document.getElementById('resetDaily').addEventListener('click', resetDaily);
+
+        document.getElementById('taskName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+        });
+
+        document.getElementById('rewardName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addReward();
+        });
+
+        // Initialize
+        initializeGoogle();
+    </script>
+</body>
+</html>
